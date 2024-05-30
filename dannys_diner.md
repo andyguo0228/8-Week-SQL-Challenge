@@ -394,4 +394,226 @@ Rank All The Things Danny also requires further information about the ranking of
 
 ### If each $1 spent equates to 10 points and sushi has a 2x points multiplier - how many points would each customer have?
 
+- **CTE**: `WITH temp_table AS (...)`
+  - Creates a temporary result set that includes customer ID and points calculated based on product ID.
+
+- **CASE Statement**: `CASE WHEN menu.product_id = 1 THEN price * 20 ELSE price * 10 END AS points`
+  - Calculates points based on whether the product ID is 1 or not, assigning 20 times the price for product ID 1 and 10 times the price for other products.
+
+- **INNER JOIN**: `INNER JOIN menu ON sales.product_id = menu.product_id`
+  - Joins `sales` with `menu` to get product details based on `product_id`.
+
+- **Aggregation**: `SELECT customer_id, SUM(points)`
+  - Selects the customer ID and sums the points for each customer.
+
+- **GROUP BY**: `GROUP BY customer_id`
+  - Groups the results by `customer_id` to aggregate the sum of points for each customer.
+
+> ```sql
+> WITH temp_table AS (
+>     SELECT customer_id,
+>            CASE
+>                WHEN menu.product_id = 1 THEN price * 20
+>                ELSE price * 10
+>                END AS points
+>     FROM sales
+>          INNER JOIN menu ON sales.product_id = menu.product_id
+> )
+> SELECT customer_id,
+>        SUM(points)
+> FROM temp_table
+> GROUP BY customer_id;
+> 
+> ```
+
+| customer\_id | sum |
+| :--- | :--- |
+| B | 940 |
+| C | 360 |
+| A | 860 |
+
+---
+
 ### In the first week after a customer joins the program (including their join date) they earn 2x points on all items, not just sushi - how many points do customer A and B have at the end of January?
+
+- **SELECT**: `SELECT sales.customer_id, SUM(CASE ... END) AS total_points`
+  - Selects the customer ID and sums the points for each customer, aliasing it as `total_points`.
+
+- **CASE Statement**: `CASE WHEN sales.product_id = 1 THEN menu.price * 20 ELSE menu.price * 10 END`
+  - Calculates points by assigning 20 times the price for product ID 1 and 10 times the price for other products.
+
+- **INNER JOIN**:
+  - `INNER JOIN members ON sales.customer_id = members.customer_id`
+    - Joins `sales` with `members` on `customer_id`.
+  - `INNER JOIN menu ON sales.product_id = menu.product_id`
+    - Joins `sales` with `menu` to get product details based on `product_id`.
+
+- **WHERE**:
+  - `WHERE order_date >= members.join_date`
+    - Filters results to include only orders placed on or after the member's join date.
+  - `AND EXTRACT(MONTH FROM order_date) = 1`
+    - Filters results to include only orders placed in January.
+
+- **GROUP BY**: `GROUP BY sales.customer_id`
+  - Groups the results by `customer_id` to aggregate the total points for each customer.
+
+> ```sql
+> SELECT sales.customer_id,
+>        SUM(CASE
+>                WHEN sales.product_id = 1 THEN menu.price * 20
+>                ELSE menu.price * 10
+>            END) AS points
+> FROM sales
+>      INNER JOIN members ON sales.customer_id = members.customer_id
+>      INNER JOIN menu ON sales.product_id = menu.product_id
+> WHERE order_date >= members.join_date
+>   AND EXTRACT(MONTH FROM order_date) = 1
+> GROUP BY sales.customer_id;
+> 
+> ```
+
+| customer\_id | points |
+| :--- | :--- |
+| B | 320 |
+| A | 510 |
+
+---
+
+### Recreate the following table output using the available data:
+
+| **customer\_id** | **order\_date** | **product\_name** | **price** | **member** |
+| --- | --- | --- | --- | --- |
+| A | 2021-01-01 | curry | 15 | N |
+| A | 2021-01-01 | sushi | 10 | N |
+| A | 2021-01-07 | curry | 15 | Y |
+| A | 2021-01-10 | ramen | 12 | Y |
+| A | 2021-01-11 | ramen | 12 | Y |
+| A | 2021-01-11 | ramen | 12 | Y |
+| B | 2021-01-01 | curry | 15 | N |
+| B | 2021-01-02 | curry | 15 | N |
+| B | 2021-01-04 | sushi | 10 | N |
+| B | 2021-01-11 | sushi | 10 | Y |
+| B | 2021-01-16 | ramen | 12 | Y |
+| B | 2021-02-01 | ramen | 12 | Y |
+| C | 2021-01-01 | ramen | 12 | N |
+| C | 2021-01-01 | ramen | 12 | N |
+| C | 2021-01-07 | ramen | 12 | N |
+
+
+> ```sql
+> SELECT sales.customer_id,
+>        sales.order_date,
+>        menu.product_name,
+>        menu.price,
+>        CASE
+>            WHEN order_date >= members.join_date THEN 'Y'
+>            ELSE 'N'
+>            END AS member
+> FROM sales
+>      INNER JOIN members ON sales.customer_id = members.customer_id
+>      INNER JOIN menu ON sales.product_id = menu.product_id;
+> 
+> ```
+
+---
+
+### Rank All The Things Danny also requires further information about the ranking of customer products, but he purposely does not need the ranking for non-member purchases so he expects null ranking values for the records when customers are not yet part of the loyalty program.
+
+| **customer\_id** | **order\_date** | **product\_name** | **price** | **member** | **ranking** |
+| --- | --- | --- | --- | --- | --- |
+| A | 2021-01-01 | curry | 15 | N | null |
+| A | 2021-01-01 | sushi | 10 | N | null |
+| A | 2021-01-07 | curry | 15 | Y | 1 |
+| A | 2021-01-10 | ramen | 12 | Y | 2 |
+| A | 2021-01-11 | ramen | 12 | Y | 3 |
+| A | 2021-01-11 | ramen | 12 | Y | 3 |
+| B | 2021-01-01 | curry | 15 | N | null |
+| B | 2021-01-02 | curry | 15 | N | null |
+| B | 2021-01-04 | sushi | 10 | N | null |
+| B | 2021-01-11 | sushi | 10 | Y | 1 |
+| B | 2021-01-16 | ramen | 12 | Y | 2 |
+| B | 2021-02-01 | ramen | 12 | Y | 3 |
+| C | 2021-01-01 | ramen | 12 | N | null |
+| C | 2021-01-01 | ramen | 12 | N | null |
+| C | 2021-01-07 | ramen | 12 | N | null |
+
+
+WITH temp_table AS (
+    SELECT sales.customer_id,
+           sales.order_date,
+           menu.product_name,
+           menu.price,
+           CASE
+               WHEN order_date >= members.join_date THEN 'Y'
+               ELSE 'N'
+               END AS member
+    FROM sales
+         INNER JOIN members ON sales.customer_id = members.customer_id
+         LEFT JOIN menu ON sales.product_id = menu.product_id
+),
+rank_table AS (
+    SELECT temp_table.customer_id,
+           temp_table.order_date,
+           DENSE_RANK() OVER(PARTITION BY temp_table.customer_id ORDER BY temp_table.order_date) AS ranking
+    FROM temp_table
+    WHERE temp_table.member = 'Y'
+)
+SELECT temp_table.customer_id,
+       temp_table.order_date,
+       product_name,
+       price,
+       member,
+       ranking
+FROM temp_table
+LEFT JOIN rank_table ON temp_table.order_date = rank_table.order_date;
+
+
+
+
+WITH temp_table AS (
+    SELECT
+        s.customer_id,
+        s.order_date,
+        m.product_name,
+        m.price,
+        CASE
+            WHEN s.order_date >= mem.join_date THEN 'Y'
+            ELSE 'N'
+        END AS member
+    FROM
+        sales s
+        INNER JOIN menu m ON s.product_id = m.product_id
+        LEFT JOIN members mem ON s.customer_id = mem.customer_id
+),
+ranked_table AS (
+    SELECT
+        customer_id,
+        order_date,
+        product_name,
+        price,
+        member,
+        DENSE_RANK() OVER (PARTITION BY customer_id ORDER BY order_date) AS ranking
+    FROM
+        temp_table
+    WHERE
+        member = 'Y'
+)
+SELECT
+    customer_id,
+    order_date,
+    product_name,
+    price,
+    member,
+    CASE
+        WHEN member = 'Y' THEN ranking
+        ELSE NULL
+    END AS ranking
+FROM
+    temp_table
+LEFT JOIN
+    ranked_table USING (customer_id, order_date, product_name, price, member)
+ORDER BY
+    customer_id, order_date;
+
+SELECT *
+FROM sales;

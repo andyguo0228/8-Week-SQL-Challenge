@@ -5,9 +5,89 @@ All information for this case study can be found here - [Pizza Runner Case Study
 In this case study, I'll be leveraging a local PostgreSQL database to execute queries and derive insights from the following datasets:
 ![alt text](image.png)
 
+This case study has several questions which will be divided into the following sections:
 
-# Pizza Metrics
+1. **Pizza Metrics**
+2. **Runner and Customer Experience**
+3. **Ingredient Optimization**
+4. **Pricing and Ratings**
+5. **Bonus Data Manipulation Language Question**
 
+However, before we dive into the data, we have to clean up the `customer_orders` and `runner_orders` tables.
+
+### Data Cleaning
+
+There are two issues with the `customer_order` table
+
+1. Exclusions column contains the string 'null' as a text value.
+2. Extras column also contains the string 'null' as well as the SQL NULL for missing or undefined value.
+
+| order\_id | customer\_id | pizza\_id | exclusions | extras | order\_time |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 1 | 101 | 1 |  |  | 2020-01-01 18:05:02.000000 |
+| 2 | 101 | 1 |  |  | 2020-01-01 19:00:52.000000 |
+| 3 | 102 | 1 |  |  | 2020-01-02 23:51:23.000000 |
+| 3 | 102 | 2 |  | null | 2020-01-02 23:51:23.000000 |
+| 4 | 103 | 1 | 4 |  | 2020-01-04 13:23:46.000000 |
+| 4 | 103 | 1 | 4 |  | 2020-01-04 13:23:46.000000 |
+| 4 | 103 | 2 | 4 |  | 2020-01-04 13:23:46.000000 |
+| 5 | 104 | 1 | null | 1 | 2020-01-08 21:00:29.000000 |
+| 6 | 101 | 2 | null | null | 2020-01-08 21:03:13.000000 |
+| 7 | 105 | 2 | null | 1 | 2020-01-08 21:20:29.000000 |
+| 8 | 102 | 1 | null | null | 2020-01-09 23:54:33.000000 |
+| 9 | 103 | 1 | 4 | 1, 5 | 2020-01-10 11:22:59.000000 |
+| 10 | 104 | 1 | null | null | 2020-01-11 18:34:49.000000 |
+| 10 | 104 | 1 | 2, 6 | 1, 4 | 2020-01-11 18:34:49.000000 |
+
+
+To clean the data, we can simply use a CASE statement to find and replace 'null' string and SQL NULL with an empty string.
+
+- Backup `customer_orders` table
+
+> ```sql
+> CREATE TABLE customer_orders_backup AS TABLE customer_orders;
+> 
+> ```
+
+- Create and clean temporary table
+
+> ```sql
+> CREATE TABLE cleaned_customer_orders AS
+> SELECT order_id,
+>        customer_id,
+>        pizza_id,
+>        CASE
+>            WHEN exclusions = 'null' OR exclusions = '' THEN ''
+>            ELSE exclusions
+>        END AS exclude,
+>        CASE
+>            WHEN extras = 'null' OR extras = '' OR extras IS NULL THEN ''
+>            ELSE extras
+>        END AS extra,
+>        order_time
+> FROM customer_orders;
+> 
+> ```
+
+- Update `customer_orders` table
+
+> ```sql
+> UPDATE customer_orders
+> SET exclusions = cleaned_customer_orders.exclude,
+>     extras = cleaned_customer_orders.extra
+> FROM cleaned_customer_orders
+> WHERE customer_orders.order_id = cleaned_customer_orders.order_id;
+> 
+> ```
+
+- Drop temporary table
+
+> ```sql
+> DROP TABLE cleaned_customer_orders;
+> 
+> ```
+
+```sql
 ### A. Pizza Metrics
 
 1. **How many pizzas were ordered?**

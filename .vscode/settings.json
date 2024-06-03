@@ -1,0 +1,14 @@
+{
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "server": "cookie.postgres.database.azure.com",
+            "port": 5432,
+            "askForPassword": true,
+            "driver": "PostgreSQL",
+            "name": "AZ PostgreSQL",
+            "database": "sql_challenge",
+            "username": "postgres"
+        }
+    ]
+}

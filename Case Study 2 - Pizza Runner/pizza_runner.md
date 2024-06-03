@@ -87,6 +87,52 @@ To clean the data, we can simply use a CASE statement to find and replace 'null'
 > 
 > ```
 
+# Clean table queries
+
+```sql
+CREATE VIEW customer_order AS
+SELECT order_id,
+       customer_id,
+       pizza_id,
+       CASE
+           WHEN exclusions = 'null' OR exclusions = '' THEN ''
+           ELSE exclusions
+       END AS exclusions,
+       CASE
+           WHEN extras = 'null' OR extras = '' OR extras IS NULL THEN ''
+           ELSE extras
+       END AS extras,
+       TO_CHAR(order_time, 'YYYY-MM-DD HH24:MI:SS') AS order_time
+FROM customer_orders;
+
+CREATE VIEW runner_order AS
+SELECT order_id,
+       runner_id,
+       CASE
+           WHEN pickup_time LIKE 'null' THEN ''
+            ELSE pickup_time
+        END AS pickup_time,
+       CASE
+           WHEN distance LIKE 'null' THEN ''
+           WHEN distance LIKE '%km' THEN REPLACE(distance, 'km', '')
+        ELSE distance
+        END AS distance,
+        CASE
+            WHEN duration LIKE 'null' THEN ''
+            WHEN duration LIKE '%minutes' THEN REPLACE(duration, 'minutes', '')
+            WHEN duration LIKE '%mins' THEN REPLACE(duration, 'mins', '')
+            WHEN duration like '%minute' THEN REPLACE(duration, 'minute', '')
+            ELSE duration
+        END AS duration,
+        CASE
+            WHEN cancellation = 'null' OR cancellation IS NULL THEN ''
+            ELSE cancellation
+        END AS cancellation
+FROM runner_orders;
+
+```
+
+
 ```sql
 ### A. Pizza Metrics
 

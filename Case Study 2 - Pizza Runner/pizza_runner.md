@@ -158,14 +158,90 @@ These are the steps to clean the table:
 ### A. Pizza Metrics
 
 1. How many pizzas were ordered?
+
+```sql
+SELECT COUNT(*) AS number_of_pizzas
+FROM customer_order;
+```
+
+| number\_of\_pizzas |
+| :--- |
+| 14 |
+
+- A total of 14 pizzas were orders.
+
 2. How many unique customer orders were made?
+
+```sql
+SELECT COUNT(DISTINCT order_id) AS number_of_orders
+FROM customer_order;
+```
+
+| number\_of\_orders |
+| :--- |
+| 10 |
+
+- There were 10 unique customer orders.
+
 3. How many successful orders were delivered by each runner?
+
+```sql
+SELECT runner_id,
+       COUNT(*) AS order_count
+FROM runner_order
+WHERE duration IS NOT NULL
+GROUP BY runner_id
+ORDER BY order_count DESC;
+```
+
+| runner\_id | order\_count |
+| :--- | :--- |
+| 1 | 4 |
+| 2 | 3 |
+| 3 | 1 |
+
+- Runner 1 had 4 successful deliveries.
+- Runner 2 had 3 successful deliveries.
+- Runner 3 had 1 successful delivery.
+
+
+
 4. How many of each type of pizza was delivered?
+
+```sql
+SELECT pizza_name,
+       COUNT(*) AS number_of_pizzas
+FROM customer_order AS c
+LEFT JOIN pizza_names as p ON c.pizza_id = p.pizza_id
+GROUP BY pizza_name
+ORDER BY number_of_pizzas DESC;
+```
+| pizza\_name | number\_of\_pizzas |
+| :--- | :--- |
+| Meatlovers | 10 |
+| Vegetarian | 4 |
+
+- 10 Meatlovers pizzas were delivered.
+- 4 Vegetarian pizzas were delivered.
+
+
+
+
 5. How many Vegetarian and Meatlovers were ordered by each customer?
+
+
+
+
 6. What was the maximum number of pizzas delivered in a single order?
+
+
+
 7. For each customer, how many delivered pizzas had at least 1 change and how many had no changes?
+
+
+
 8. How many pizzas were delivered that had both exclusions and extras?
-9. What was the total volume of pizzas ordered for each hour of the day?
+9.  What was the total volume of pizzas ordered for each hour of the day?
 10. What was the volume of orders for each day of the week?
 
 ### B. Runner and Customer Experience

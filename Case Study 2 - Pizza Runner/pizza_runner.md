@@ -204,8 +204,6 @@ ORDER BY order_count DESC;
 - Runner 2 had 3 successful deliveries.
 - Runner 3 had 1 successful delivery.
 
-
-
 **4. How many of each type of pizza was delivered?**
 
 ```sql
@@ -216,6 +214,7 @@ LEFT JOIN pizza_names as p ON c.pizza_id = p.pizza_id
 GROUP BY pizza_name
 ORDER BY number_of_pizzas DESC;
 ```
+
 | pizza\_name | number\_of\_pizzas |
 | :--- | :--- |
 | Meatlovers | 10 |
@@ -271,7 +270,6 @@ LIMIT 1;
 
 - The maximum number of pizzas delivered in a single order was 3.
 
-
 **7. For each customer, how many delivered pizzas had at least 1 change and how many had no changes?**
 
 ```sql
@@ -297,7 +295,6 @@ ORDER BY customer_id;
 | 103 | 4 | 0 |
 | 104 | 2 | 1 |
 | 105 | 1 | 0 |
-
 
 - Custoner 101 and 102 had no changes to their pizzas.
 - Customer 103 and 105 had at least 1 change to their pizzas.
@@ -339,19 +336,98 @@ ORDER BY hour;
 | 21 | 3 |
 | 23 | 3 |
 
+**10. What was the volume of orders for each day of the week?**
 
+```sql
+SELECT TO_CHAR(order_time, 'day') AS day_of_week,
+       COUNT(*)
+FROM customer_orders
+GROUP by day_of_week;
+```
 
-10. What was the volume of orders for each day of the week?
+| day\_of\_week | count |
+| :--- | :--- |
+| wednesday | 5 |
+| thursday  | 3 |
+| friday    | 1 |
+| saturday  | 5 |
+
+- Wednesday and Saturday had the highest volume of orders with 5 orders.
+- Friday had the lowest volume of orders with 1 order.
+
+---
 
 ### B. Runner and Customer Experience
 
-1. How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01)
-2. What was the average time in minutes it took for each runner to arrive at the Pizza Runner HQ to pickup the order?
-3. Is there any relationship between the number of pizzas and how long the order takes to prepare?
+**1. How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01)**
+
+```sql
+SELECT MIN(registration_date) AS week_start,
+       COUNT(*) AS registrations
+FROM (
+         SELECT registration_date,
+                FLOOR((registration_date - DATE '2021-01-01') / 7) AS week_number
+         FROM runners
+     ) AS subquery
+GROUP BY week_number;
+```
+| week\_start | registrations |
+| :--- | :--- |
+| 2021-01-01 | 2 |
+| 2021-01-08 | 1 |
+| 2021-01-15 | 1 |
+
+- 2 runners signed up in the first week.
+- 1 runner signed up in the second and third week
+
+
+**2. What was the average time in minutes it took for each runner to arrive at the Pizza Runner HQ to pickup the order?**
+
+```sql
+SELECT r.runner_id,
+       EXTRACT(minutes FROM AVG(r.pickup_time - c.order_time)) average_pickup_minutes
+FROM runner_order AS r
+LEFT JOIN customer_order AS c ON r.order_id = c.order_id
+WHERE r.pickup_time IS NOT NULL
+GROUP BY r.runner_id;
+```
+
+| runner\_id | average\_pickup\_minutes |
+| :--- | :--- |
+| 3 | 10 |
+| 2 | 23 |
+| 1 | 15 |
+
+- Runner 3 took an average of 10 minutes to arrive at the Pizza Runner HQ.
+- Runner 2 took an average of 23 minutes to arrive at the Pizza Runner HQ.
+- Runner 1 took an average of 15 minutes to arrive at the Pizza Runner HQ.
+
+
+1. Is there any relationship between the number of pizzas and how long the order takes to prepare?
+
+
+
+
 4. What was the average distance travelled for each customer?
+
+
+
+
 5. What was the difference between the longest and shortest delivery times for all orders?
+
+
+
+
 6. What was the average speed for each runner for each delivery and do you notice any trend for these values?
+
+
+
+
+
 7. What is the successful delivery percentage for each runner?
+
+
+
 
 ### C. Ingredient Optimization
 

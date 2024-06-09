@@ -157,7 +157,7 @@ These are the steps to clean the table:
 
 ### A. Pizza Metrics
 
-1. How many pizzas were ordered?
+**1. How many pizzas were ordered?**
 
 ```sql
 SELECT COUNT(*) AS number_of_pizzas
@@ -170,7 +170,7 @@ FROM customer_order;
 
 - A total of 14 pizzas were orders.
 
-2. How many unique customer orders were made?
+**2. How many unique customer orders were made?**
 
 ```sql
 SELECT COUNT(DISTINCT order_id) AS number_of_orders
@@ -183,7 +183,7 @@ FROM customer_order;
 
 - There were 10 unique customer orders.
 
-3. How many successful orders were delivered by each runner?
+**3. How many successful orders were delivered by each runner?**
 
 ```sql
 SELECT runner_id,
@@ -206,7 +206,7 @@ ORDER BY order_count DESC;
 
 
 
-4. How many of each type of pizza was delivered?
+**4. How many of each type of pizza was delivered?**
 
 ```sql
 SELECT pizza_name,
@@ -224,24 +224,123 @@ ORDER BY number_of_pizzas DESC;
 - 10 Meatlovers pizzas were delivered.
 - 4 Vegetarian pizzas were delivered.
 
+**5. How many Vegetarian and Meatlovers were ordered by each customer?**
+
+```sql
+SELECT c.customer_id,
+       p.pizza_name,
+       COUNT(*) AS pizza_count
+FROM customer_order AS c
+LEFT JOIN pizza_names AS p ON c.pizza_id = p.pizza_id
+GROUP BY c.customer_id,
+         p.pizza_name
+ORDER BY c.customer_id;
+```
+
+| customer\_id | pizza\_name | pizza\_count |
+| :--- | :--- | :--- |
+| 101 | Meatlovers | 2 |
+| 101 | Vegetarian | 1 |
+| 102 | Meatlovers | 2 |
+| 102 | Vegetarian | 1 |
+| 103 | Meatlovers | 3 |
+| 103 | Vegetarian | 1 |
+| 104 | Meatlovers | 3 |
+| 105 | Vegetarian | 1 |
+
+- Customer 101 ordered 2 Meatlovers and 1 Vegetarian pizza.
+- Customer 102 ordered 2 Meatlovers and 1 Vegetarian pizza.
+- Customer 103 ordered 3 Meatlovers and 1 Vegetarian pizza.
+- Customer 104 ordered 3 Meatlovers.
+- Customer 105 ordered 1 Vegetarian pizza.
+
+**6. What was the maximum number of pizzas delivered in a single order?**
+
+```sql
+SELECT order_id,
+       COUNT(*) AS pizza_count
+FROM customer_order
+GROUP BY order_id
+ORDER BY pizza_count DESC
+LIMIT 1;
+```
+
+| order\_id | pizza\_count |
+| :--- | :--- |
+| 4 | 3 |
+
+- The maximum number of pizzas delivered in a single order was 3.
+
+
+**7. For each customer, how many delivered pizzas had at least 1 change and how many had no changes?**
+
+```sql
+SELECT customer_id,
+       SUM(CASE
+               WHEN exclusions IS NOT NULL OR extras IS NOT NULL THEN 1
+               ELSE 0
+           END) AS pizza_with_change,
+       SUM(CASE
+               WHEN exclusions IS NULL AND extras IS NULL THEN 1
+               ELSE 0
+           END) AS pizza_without_change
+FROM customer_order
+GROUP BY customer_id
+ORDER BY customer_id;
+
+```
+
+| customer\_id | pizza\_with\_change | pizza\_without\_change |
+| :--- | :--- | :--- |
+| 101 | 0 | 3 |
+| 102 | 0 | 3 |
+| 103 | 4 | 0 |
+| 104 | 2 | 1 |
+| 105 | 1 | 0 |
+
+
+- Custoner 101 and 102 had no changes to their pizzas.
+- Customer 103 and 105 had at least 1 change to their pizzas.
+- Customer 104 had pizza with and without changes. 
+
+**8. How many pizzas were delivered that had both exclusions and extras?**
+
+```sql
+SELECT COUNT(*) AS pizza_with_exclusions_extras
+FROM customer_order AS c
+     LEFT JOIN runner_order AS r ON c.order_id = r.order_id
+WHERE r.distance IS NOT NULL
+  AND exclusions IS NOT NULL
+  AND extras IS NOT NULL;
+```
+
+| pizza\_with\_exclusions\_extras |
+| :--- |
+| 1 |
+
+- There was 1 pizza delivered that had both exclusions and extras.
+
+**9.  What was the total volume of pizzas ordered for each hour of the day?**
+
+```sql
+SELECT EXTRACT(HOUR FROM order_time) AS hour,
+       COUNT(*) AS pizza_count
+FROM customer_order
+GROUP BY hour
+ORDER BY hour;
+```
+
+| hour | pizza\_count |
+| :--- | :--- |
+| 11 | 1 |
+| 13 | 3 |
+| 18 | 3 |
+| 19 | 1 |
+| 21 | 3 |
+| 23 | 3 |
 
 
 
-5. How many Vegetarian and Meatlovers were ordered by each customer?
-
-
-
-
-6. What was the maximum number of pizzas delivered in a single order?
-
-
-
-7. For each customer, how many delivered pizzas had at least 1 change and how many had no changes?
-
-
-
-8. How many pizzas were delivered that had both exclusions and extras?
-9.  What was the total volume of pizzas ordered for each hour of the day?
 10. What was the volume of orders for each day of the week?
 
 ### B. Runner and Customer Experience
@@ -254,7 +353,7 @@ ORDER BY number_of_pizzas DESC;
 6. What was the average speed for each runner for each delivery and do you notice any trend for these values?
 7. What is the successful delivery percentage for each runner?
 
-### C. Ingredient Optimisation
+### C. Ingredient Optimization
 
 1. What are the standard ingredients for each pizza?
 2. What was the most commonly added extra?

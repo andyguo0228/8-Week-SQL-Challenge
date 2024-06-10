@@ -520,6 +520,31 @@ ORDER BY runner_id;
 ### C. Ingredient Optimization
 
 1. What are the standard ingredients for each pizza?
+
+```sql
+WITH temp AS (
+    SELECT pizza_id,
+           UNNEST(STRING_TO_ARRAY(toppings, ', '))::INT AS top
+    FROM pizza_recipes
+)
+SELECT temp.pizza_id,
+       STRING_AGG(pn.topping_name, ', ') AS ingredients
+FROM temp
+     LEFT JOIN pizza_toppings AS pn ON temp.top = pn.topping_id
+GROUP BY temp.pizza_id
+ORDER BY temp.pizza_id;
+```
+
+| pizza\_id | ingredients |
+| :--- | :--- |
+| 1 | Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami |
+| 2 | Cheese, Mushrooms, Onions, Peppers, Tomatoes, Tomato Sauce |
+
+
+
+
+
+
 2. What was the most commonly added extra?
 3. What was the most common exclusion?
 4. Generate an order item for each record in the customers_orders table in the format of one of the following:

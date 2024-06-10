@@ -380,7 +380,6 @@ GROUP BY week_number;
 - 2 runners signed up in the first week.
 - 1 runner signed up in the second and third week
 
-
 **2. What was the average time in minutes it took for each runner to arrive at the Pizza Runner HQ to pickup the order?**
 
 ```sql
@@ -402,32 +401,121 @@ GROUP BY r.runner_id;
 - Runner 2 took an average of 23 minutes to arrive at the Pizza Runner HQ.
 - Runner 1 took an average of 15 minutes to arrive at the Pizza Runner HQ.
 
+**3. Is there any relationship between the number of pizzas and how long the order takes to prepare?**
 
-1. Is there any relationship between the number of pizzas and how long the order takes to prepare?
+```sql
+SELECT c.order_id,
+       EXTRACT(MINUTES FROM (r.pickup_time - c.order_time)) AS prep_time,
+       COUNT(*) AS number_of_pizzas
+FROM customer_order AS c
+LEFT JOIN runner_order AS r ON c.order_id = r.order_id
+WHERE r.pickup_time IS NOT NULL
+GROUP BY c.order_id, prep_time
+ORDER BY c.order_id;
+```
 
+| order\_id | prep\_time | number_of_pizzas |
+| :--- | :--- | :--- |
+| 1 | 10 | 1 |
+| 2 | 10 | 1 |
+| 3 | 21 | 2 |
+| 4 | 29 | 3 |
+| 5 | 10 | 1 |
+| 7 | 10 | 1 |
+| 8 | 20 | 1 |
+| 10 | 15 | 2 |
 
+- Yes, the time to prepare the order increases with the number of pizzas ordered. Order 4 had the longest prep time of 29 minutes for 3 pizzas.
 
+**4. What was the average distance travelled for each customer?**
 
-4. What was the average distance travelled for each customer?
+```sql
+WITH temp AS (
+    SELECT ROW_NUMBER() OVER (PARTITION BY c.order_id ORDER BY c.order_id) AS row_num,
+           *
+    FROM runner_order AS r
+         LEFT JOIN customer_order AS c ON r.order_id = c.order_id
+    ORDER BY customer_id
+)
+SELECT customer_id,
+       AVG(distance) AS avg_distance
+FROM temp
+WHERE row_num = 1
+  AND pickup_time IS NOT NULL
+GROUP BY customer_id;
+```
 
+| customer\_id | avg\_distance |
+| :--- | :--- |
+| 101 | 20 |
+| 102 | 18.4 |
+| 103 | 23.4 |
+| 104 | 10 |
+| 105 | 25 |
 
+- Customer 104 had the shortest average distance of 10 km and customer 105 had the longest average distance of 25 km.
 
+**5. What was the difference between the longest and shortest delivery times for all orders?**
 
-5. What was the difference between the longest and shortest delivery times for all orders?
+```sql
+SELECT (MAX(duration) - MIN(duration)) AS max_min_duration_diff
+FROM runner_order;
+```
 
+| max\_min\_duration\_diff |
+| :--- |
+| 30 |
 
+- The difference between the longest and shortest delivery times for all orders was 30 minutes.
 
+**6. What was the average speed for each runner for each delivery and do you notice any trend for these values?**
 
-6. What was the average speed for each runner for each delivery and do you notice any trend for these values?
+```sql
+WITH temp AS (
+    SELECT runner_id,
+           (distance / duration) AS speed
+    FROM runner_order
+    WHERE distance IS NOT NULL
+)
+SELECT runner_id,
+       ROUND(AVG(speed), 2) AS avg_km_per_min
+FROM temp
+GROUP BY runner_id
+ORDER BY runner_id;
+```
 
+| runner\_id | avg\_km\_per\_min |
+| :--- | :--- |
+| 1 | 0.76 |
+| 2 | 1.05 |
+| 3 | 0.67 |
 
+- Runner 2 had the highest average speed of 1.05 km per minute.
 
+**7. What is the successful delivery percentage for each runner?**
 
+```sql
+SELECT runner_id,
+       COUNT(*) AS total_deliveries,
+       SUM(CASE WHEN cancellation IS NULL THEN 1 ELSE 0 END) AS successful_deliveries,
+       ROUND(
+               (SUM(CASE WHEN cancellation IS NULL THEN 1 ELSE 0 END) * 100.0) / COUNT(*),
+               2
+       ) AS successful_delivery_percentage
+FROM runner_order
+GROUP BY runner_id
+ORDER BY runner_id;
+```
 
-7. What is the successful delivery percentage for each runner?
+| runner\_id | total\_deliveries | successful\_deliveries | successful\_delivery\_percentage |
+| :--- | :--- | :--- | :--- |
+| 1 | 4 | 4 | 100 |
+| 2 | 4 | 3 | 75 |
+| 3 | 2 | 1 | 50 |
 
-
-
+- Runner 1 had a 100% successful delivery rate.
+- Runner 2 had a 75% successful delivery rate.
+- Runner 3 had a 50% successful delivery rate.
 
 ### C. Ingredient Optimization
 

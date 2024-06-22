@@ -552,6 +552,62 @@ ORDER BY temp.pizza_id;
     - `Meat Lovers - Exclude Beef`
     - `Meat Lovers - Extra Bacon`
     - `Meat Lovers - Exclude Cheese, Bacon - Extra Mushroom, Peppers`
+
+```sql
+WITH order_items AS (
+    SELECT co.order_id,
+           co.customer_id,
+           pn.pizza_name,
+           co.exclusions,
+           co.extras
+    FROM customer_order co
+         JOIN pizza_names pn ON co.pizza_id = pn.pizza_id
+),
+     exclusions AS (
+    SELECT oi.order_id,
+           STRING_AGG(pt.topping_name, ', ') AS exclusion_list
+    FROM order_items oi
+         LEFT JOIN UNNEST(STRING_TO_ARRAY(oi.exclusions, ', ')) AS x(topping_id) ON TRUE
+         LEFT JOIN pizza_toppings pt ON x.topping_id::INTEGER = pt.topping_id
+    GROUP BY oi.order_id
+),
+     extras AS (
+    SELECT oi.order_id,
+           STRING_AGG(pt.topping_name, ', ') AS extra_list
+    FROM order_items oi
+         LEFT JOIN UNNEST(STRING_TO_ARRAY(oi.extras, ', ')) AS x(topping_id) ON TRUE
+         LEFT JOIN pizza_toppings pt ON x.topping_id::INTEGER = pt.topping_id
+    GROUP BY oi.order_id
+)
+SELECT oi.order_id,
+       oi.customer_id,
+       oi.pizza_name || COALESCE(' - Exclude ' || e.exclusion_list, '') ||
+       COALESCE(' - Extra ' || ex.extra_list, '') AS order_item
+FROM order_items oi
+     LEFT JOIN exclusions e ON oi.order_id = e.order_id
+     LEFT JOIN extras ex ON oi.order_id = ex.order_id
+ORDER BY oi.order_id;
+
+```
+
+| order\_id | customer\_id | order\_item |
+| :--- | :--- | :--- |
+| 1 | 101 | Meatlovers |
+| 2 | 101 | Meatlovers |
+| 3 | 102 | Meatlovers |
+| 3 | 102 | Vegetarian |
+| 4 | 103 | Vegetarian - Exclude Cheese, Cheese, Cheese |
+| 4 | 103 | Meatlovers - Exclude Cheese, Cheese, Cheese |
+| 4 | 103 | Meatlovers - Exclude Cheese, Cheese, Cheese |
+| 5 | 104 | Meatlovers - Extra Bacon |
+| 6 | 101 | Vegetarian |
+| 7 | 105 | Vegetarian - Extra Bacon |
+| 8 | 102 | Meatlovers |
+| 9 | 103 | Meatlovers - Exclude Cheese - Extra Bacon, Chicken |
+| 10 | 104 | Meatlovers - Exclude BBQ Sauce, Mushrooms - Extra Bacon, Cheese |
+| 10 | 104 | Meatlovers - Exclude BBQ Sauce, Mushrooms - Extra Bacon, Cheese |
+
+
 5. Generate an alphabetically ordered comma separated ingredient list for each pizza order from the customer_orders table and add a 2x in front of any relevant ingredients
     - For example: `"Meat Lovers: 2xBacon, Beef, ... , Salami"`
 6. What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?

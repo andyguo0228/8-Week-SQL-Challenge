@@ -519,7 +519,7 @@ ORDER BY runner_id;
 
 ### C. Ingredient Optimization
 
-1. What are the standard ingredients for each pizza?
+**1. What are the standard ingredients for each pizza?**
 
 ```sql
 WITH temp AS (
@@ -540,14 +540,59 @@ ORDER BY temp.pizza_id;
 | 1 | Bacon, BBQ Sauce, Beef, Cheese, Chicken, Mushrooms, Pepperoni, Salami |
 | 2 | Cheese, Mushrooms, Onions, Peppers, Tomatoes, Tomato Sauce |
 
+**2. What was the most commonly added extra?**
 
+```sql
+WITH unnest_extra AS (
+    SELECT UNNEST(STRING_TO_ARRAY(co.extras, ', '))::INTEGER AS topping_id
+    FROM customer_order co
+    WHERE co.extras IS NOT NULL
+),
+     extra_count AS (
+    SELECT ue.topping_id,
+           COUNT(*) AS extra_count
+    FROM unnest_extra ue
+    GROUP BY ue.topping_id
+)
+SELECT pt.topping_name,
+       ec.extra_count
+FROM extra_count ec
+     JOIN pizza_toppings pt ON ec.topping_id = pt.topping_id
+ORDER BY ec.extra_count DESC
+LIMIT 1;
+```
 
+| topping\_name | extra\_count |
+| :--- | :--- |
+| Bacon | 4 |
 
+**3. What was the most common exclusion?**
 
+```sql
+WITH unnest_exclude AS (
+    SELECT UNNEST(STRING_TO_ARRAY(co.exclusions, ', '))::INTEGER AS topping_id
+    FROM customer_order co
+    WHERE co.exclusions IS NOT NULL
+),
+     exclude_count AS (
+    SELECT ue.topping_id,
+           COUNT(*) AS exclude_count
+    FROM unnest_exclude ue
+    GROUP BY ue.topping_id
+)
+SELECT pt.topping_name,
+       ec.exclude_count
+FROM exclude_count ec
+     JOIN pizza_toppings pt ON ec.topping_id = pt.topping_id
+ORDER BY ec.exclude_count DESC
+LIMIT 1;
+```
 
-2. What was the most commonly added extra?
-3. What was the most common exclusion?
-4. Generate an order item for each record in the customers_orders table in the format of one of the following:
+| topping\_name | exclude\_count |
+| :--- | :--- |
+| Cheese | 4 |
+
+**4. Generate an order item for each record in the customers_orders table in the format of one of the following:**
     - `Meat Lovers`
     - `Meat Lovers - Exclude Beef`
     - `Meat Lovers - Extra Bacon`
@@ -610,6 +655,51 @@ ORDER BY oi.order_id;
 
 5. Generate an alphabetically ordered comma separated ingredient list for each pizza order from the customer_orders table and add a 2x in front of any relevant ingredients
     - For example: `"Meat Lovers: 2xBacon, Beef, ... , Salami"`
+
+```sql
+WITH order_items AS (
+    SELECT co.order_id,
+           co.customer_id,
+           co.pizza_id,
+           pn.pizza_name,
+           co.exclusions,
+           co.extras,
+           pr.toppings AS default_toppings
+
+    FROM customer_order co
+         JOIN pizza_names pn ON co.pizza_id = pn.pizza_id
+         JOIN pizza_recipes pr ON co.pizza_id = pr.pizza_id
+),
+default_toppings AS (
+    SELECT oi.order_id,
+           pt.topping_name
+    FROM order_items oi,
+         UNNEST(STRING_TO_ARRAY(oi.default_toppings, ',')) AS x(topping_id)
+         JOIN pizza_toppings pt ON x.topping_id::INTEGER = pt.topping_id
+),
+exclude_toppings AS (
+    SELECT oi.order_id,
+           pt.topping_name
+    FROM order_items oi,
+         UNNEST(STRING_TO_ARRAY(oi.exclusions, ',')) AS x(topping_id)
+         JOIN pizza_toppings pt ON x.topping_id::INTEGER = pt.topping_id
+),
+extra_toppings AS (
+    SELECT oi.order_id,
+       pt.topping_name
+FROM order_items oi,
+     UNNEST(STRING_TO_ARRAY(oi.extras, ',')) AS x(topping_id)
+JOIN pizza_toppings pt ON x.topping_id::INTEGER = pt.topping_id
+)
+SELECT
+FROM default_toppings dt
+LEFT JOIN exclude_toppings et ON dt.order_id = et.order_id AND dt.topping_name = et.
+```
+
+
+
+
+
 6. What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?
 
 ### D. Pricing and Ratings

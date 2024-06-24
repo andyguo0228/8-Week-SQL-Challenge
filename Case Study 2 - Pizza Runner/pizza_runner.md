@@ -653,7 +653,7 @@ ORDER BY oi.order_id;
 | 10 | 104 | Meatlovers - Exclude BBQ Sauce, Mushrooms - Extra Bacon, Cheese |
 
 
-5. Generate an alphabetically ordered comma separated ingredient list for each pizza order from the customer_orders table and add a 2x in front of any relevant ingredients
+5. **Generate an alphabetically ordered comma separated ingredient list for each pizza order from the customer_orders table and add a 2x in front of any relevant ingredients**
     - For example: `"Meat Lovers: 2xBacon, Beef, ... , Salami"`
 
 ```sql
@@ -662,39 +662,79 @@ WITH order_items AS (
            co.customer_id,
            co.pizza_id,
            pn.pizza_name,
+           ROW_NUMBER() OVER (ORDER BY co.order_id) AS row,
            co.exclusions,
            co.extras,
            pr.toppings AS default_toppings
-
     FROM customer_order co
-         JOIN pizza_names pn ON co.pizza_id = pn.pizza_id
          JOIN pizza_recipes pr ON co.pizza_id = pr.pizza_id
+         JOIN pizza_names pn ON co.pizza_id = pn.pizza_id
 ),
-default_toppings AS (
-    SELECT oi.order_id,
-           pt.topping_name
+     default_toppings AS (
+    SELECT oi.row,
+           oi.order_id,
+           pt.topping_name,
+           oi.pizza_name
     FROM order_items oi,
          UNNEST(STRING_TO_ARRAY(oi.default_toppings, ',')) AS x(topping_id)
-         JOIN pizza_toppings pt ON x.topping_id::INTEGER = pt.topping_id
+         LEFT JOIN pizza_toppings pt ON x.topping_id::INTEGER = pt.topping_id
+    ORDER BY oi.row, pt.topping_name
 ),
-exclude_toppings AS (
-    SELECT oi.order_id,
-           pt.topping_name
+     exclude_toppings AS (
+    SELECT oi.row,
+           oi.order_id,
+           pt.topping_name AS exclude
     FROM order_items oi,
          UNNEST(STRING_TO_ARRAY(oi.exclusions, ',')) AS x(topping_id)
-         JOIN pizza_toppings pt ON x.topping_id::INTEGER = pt.topping_id
+         LEFT JOIN pizza_toppings pt ON x.topping_id::INTEGER = pt.topping_id
 ),
-extra_toppings AS (
-    SELECT oi.order_id,
-       pt.topping_name
-FROM order_items oi,
-     UNNEST(STRING_TO_ARRAY(oi.extras, ',')) AS x(topping_id)
-JOIN pizza_toppings pt ON x.topping_id::INTEGER = pt.topping_id
+     extra_toppings AS (
+    SELECT oi.row,
+           oi.order_id,
+           pt.topping_name AS extra
+    FROM order_items oi,
+         UNNEST(STRING_TO_ARRAY(oi.extras, ',')) AS x(topping_id)
+         LEFT JOIN pizza_toppings pt ON x.topping_id::INTEGER = pt.topping_id
+),
+     final_topping AS (
+    SELECT dt.row,
+           dt.topping_name,
+           dt.order_id,
+           dt.pizza_name,
+           et.exclude,
+           et2.extra,
+           CASE
+               WHEN et2.extra IS NOT NULL THEN '2x' || dt.topping_name
+               ELSE dt.topping_name
+           END AS final_topping
+    FROM default_toppings dt
+         LEFT JOIN exclude_toppings et ON dt.row = et.row AND dt.topping_name = et.exclude
+         LEFT JOIN extra_toppings et2 ON dt.row = et2.row AND dt.topping_name = et2.extra
+    WHERE et.exclude IS NULL
 )
-SELECT
-FROM default_toppings dt
-LEFT JOIN exclude_toppings et ON dt.order_id = et.order_id AND dt.topping_name = et.
+SELECT ft.order_id,
+       ft.pizza_name || ': ' || STRING_AGG(ft.final_topping, ',') AS ingredient_list
+FROM final_topping ft
+GROUP BY ft.row, ft.order_id, ft.pizza_name
+ORDER BY ft.row;
 ```
+
+| order\_id | ingredient\_list |
+| :--- | :--- |
+| 1 | Meatlovers: Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami |
+| 2 | Meatlovers: Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami |
+| 3 | Meatlovers: Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami |
+| 3 | Vegetarian: Cheese,Mushrooms,Onions,Peppers,Tomatoes,Tomato Sauce |
+| 4 | Vegetarian: Mushrooms,Onions,Peppers,Tomatoes,Tomato Sauce |
+| 4 | Meatlovers: Bacon,BBQ Sauce,Beef,Chicken,Mushrooms,Pepperoni,Salami |
+| 4 | Meatlovers: Bacon,BBQ Sauce,Beef,Chicken,Mushrooms,Pepperoni,Salami |
+| 5 | Meatlovers: 2xBacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami |
+| 6 | Vegetarian: Cheese,Mushrooms,Onions,Peppers,Tomatoes,Tomato Sauce |
+| 7 | Vegetarian: Cheese,Mushrooms,Onions,Peppers,Tomatoes,Tomato Sauce |
+| 8 | Meatlovers: Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami |
+| 9 | Meatlovers: 2xBacon,BBQ Sauce,Beef,2xChicken,Mushrooms,Pepperoni,Salami |
+| 10 | Meatlovers: 2xBacon,Beef,2xCheese,Chicken,Pepperoni,Salami |
+| 10 | Meatlovers: Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami |
 
 
 

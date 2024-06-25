@@ -46,23 +46,23 @@ To clean the data, we can simply use a CASE statement to find and replace empty 
 
 - Create view of cleaned table
 
-> ```sql
-> CREATE VIEW customer_order AS
-> SELECT order_id,
->        customer_id,
->        pizza_id,
->        CASE
->            WHEN exclusions = 'null' OR exclusions = '' THEN NULL
->            ELSE exclusions
->        END AS exclusions,
->        CASE
->            WHEN extras = 'null' OR extras = '' OR extras IS NULL THEN NULL
->            ELSE extras
->        END AS extras,
->         order_time
-> FROM customer_orders;
-> 
-> ```
+```sql
+CREATE VIEW customer_order AS
+SELECT order_id,
+       customer_id,
+       pizza_id,
+       CASE
+           WHEN exclusions = 'null' OR exclusions = '' THEN NULL
+           ELSE exclusions
+       END AS exclusions,
+       CASE
+           WHEN extras = 'null' OR extras = '' OR extras IS NULL THEN NULL
+           ELSE extras
+       END AS extras,
+        order_time
+FROM customer_orders;
+
+```
 | order\_id | customer\_id | pizza\_id | exclusions | extras | order\_time |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | 1 | 101 | 1 | null | null | 2020-01-01 18:05:02.000000 |
@@ -111,33 +111,33 @@ These are the steps to clean the table:
 - In `duration` column, replace 'null' strings with NULL and replace unit labels with blank string.
 - In `cancellation` column, replace 'null' strings and blank strings with NULL
   
-> ```sql
-> CREATE VIEW runner_order AS
-> SELECT order_id,
->        runner_id,
->        CASE
->            WHEN pickup_time LIKE 'null' THEN NULL
->            ELSE CAST(pickup_time AS TIMESTAMP WITHOUT TIME ZONE)
->        END AS pickup_time,
->        CASE
->            WHEN distance LIKE 'null' THEN NULL
->            WHEN distance LIKE '%km' THEN CAST(REPLACE(distance, 'km', '') AS NUMERIC)
->            ELSE CAST(distance AS NUMERIC)
->        END AS distance,
->        CASE
->            WHEN duration LIKE 'null' THEN NULL
->            WHEN duration LIKE '%minutes' THEN CAST(REPLACE(duration, 'minutes', '') AS NUMERIC)
->            WHEN duration LIKE '%mins' THEN CAST(REPLACE(duration, 'mins', '') AS NUMERIC)
->            WHEN duration LIKE '%minute' THEN CAST(REPLACE(duration, 'minute', '') AS NUMERIC)
->            ELSE CAST(duration AS NUMERIC)
->        END AS duration,
->        CASE
->            WHEN cancellation = 'null' OR cancellation = '' OR cancellation IS NULL THEN NULL
->            ELSE cancellation
->        END AS cancellation
-> FROM runner_orders;
-> 
-> ```
+```sql
+CREATE VIEW runner_order AS
+SELECT order_id,
+       runner_id,
+       CASE
+           WHEN pickup_time LIKE 'null' THEN NULL
+           ELSE CAST(pickup_time AS TIMESTAMP WITHOUT TIME ZONE)
+       END AS pickup_time,
+       CASE
+           WHEN distance LIKE 'null' THEN NULL
+           WHEN distance LIKE '%km' THEN CAST(REPLACE(distance, 'km', '') AS NUMERIC)
+           ELSE CAST(distance AS NUMERIC)
+       END AS distance,
+       CASE
+           WHEN duration LIKE 'null' THEN NULL
+           WHEN duration LIKE '%minutes' THEN CAST(REPLACE(duration, 'minutes', '') AS NUMERIC)
+           WHEN duration LIKE '%mins' THEN CAST(REPLACE(duration, 'mins', '') AS NUMERIC)
+           WHEN duration LIKE '%minute' THEN CAST(REPLACE(duration, 'minute', '') AS NUMERIC)
+           ELSE CAST(duration AS NUMERIC)
+       END AS duration,
+       CASE
+           WHEN cancellation = 'null' OR cancellation = '' OR cancellation IS NULL THEN NULL
+           ELSE cancellation
+       END AS cancellation
+FROM runner_orders;
+
+```
 
 
 | order\_id | runner\_id | pickup\_time | distance | duration | cancellation |
@@ -399,9 +399,9 @@ GROUP BY r.runner_id;
 
 - Runner 3 took an average of 10 minutes to arrive at the Pizza Runner HQ.
 - Runner 2 took an average of 23 minutes to arrive at the Pizza Runner HQ.
-- Runner 1 took an average of 15 minutes to arrive at the Pizza Runner HQ.
+- Runner 1 took an average of 15 minutes to arrive at the Pizza Runner HQ.  
 
-**3. Is there any relationship between the number of pizzas and how long the order takes to prepare?**
+**3. Is there any relationship between the number of pizzas and how long the order takes to prepare?**  
 
 ```sql
 SELECT c.order_id,
@@ -736,17 +736,117 @@ ORDER BY ft.row;
 | 10 | Meatlovers: 2xBacon,Beef,2xCheese,Chicken,Pepperoni,Salami |
 | 10 | Meatlovers: Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami |
 
-
-
-
-
 6. What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?
+
+```sql
+SELECT * FROM (
+    WITH delivered_orders AS (
+        SELECT co.order_id, co.pizza_id
+        FROM customer_order co
+        JOIN runner_order ro ON co.order_id = ro.order_id
+        WHERE ro.cancellation IS NULL
+    ),
+    pizza_toppings_expanded AS (
+        SELECT pr.pizza_id, pt.topping_id, pt.topping_name
+        FROM pizza_recipes pr
+        CROSS JOIN LATERAL unnest(string_to_array(pr.toppings, ', ')) AS x(topping_id)
+        JOIN pizza_toppings pt ON x.topping_id::INTEGER = pt.topping_id
+    )
+    SELECT
+        pte.topping_name,
+        COUNT(*) AS total_quantity
+    FROM delivered_orders d
+    JOIN pizza_toppings_expanded pte ON d.pizza_id = pte.pizza_id
+    GROUP BY pte.topping_name
+) AS results
+ORDER BY total_quantity DESC;
+
+```
+
+| topping\_name | total\_quantity |
+| :--- | :--- |
+| Cheese | 12 |
+| Mushrooms | 12 |
+| Salami | 9 |
+| Bacon | 9 |
+| BBQ Sauce | 9 |
+| Beef | 9 |
+| Pepperoni | 9 |
+| Chicken | 9 |
+| Tomato Sauce | 3 |
+| Onions | 3 |
+| Tomatoes | 3 |
+| Peppers | 3 |
+
 
 ### D. Pricing and Ratings
 
 1. If a Meat Lovers pizza costs $12 and Vegetarian costs $10 and there were no charges for changes - how much money has Pizza Runner made so far if there are no delivery fees?
+
+```sql
+WITH delivered_orders AS (
+    SELECT co.order_id, co.pizza_id
+    FROM customer_order co
+         JOIN runner_order ro ON co.order_id = ro.order_id
+    WHERE ro.cancellation IS NULL
+),
+     pizza_prices AS (
+    SELECT pizza_id,
+           CASE
+               WHEN pizza_id = 1 THEN 12
+               WHEN pizza_id = 2 THEN 10
+           END AS price
+    FROM pizza_names
+)
+SELECT SUM(pp.price) AS total_revenue
+FROM delivered_orders d
+     JOIN pizza_prices pp ON d.pizza_id = pp.pizza_id;
+```
+
+| total\_revenue |
+| :--- |
+| 138 |
+
+
 2. What if there was an additional $1 charge for any pizza extras?
     - Add cheese is $1 extra
+
+```sql
+WITH delivered_orders AS (
+    SELECT co.order_id, co.pizza_id, co.extras
+    FROM customer_order co
+    JOIN runner_order ro ON co.order_id = ro.order_id
+    WHERE ro.cancellation IS NULL
+),
+pizza_prices AS (
+    SELECT
+        pizza_id,
+        CASE
+            WHEN pizza_id = 1 THEN 12
+            WHEN pizza_id = 2 THEN 10
+        END AS price
+    FROM pizza_names
+)
+SELECT
+    SUM(pp.price + COALESCE(extra_charges, 0)) AS total_revenue
+FROM delivered_orders d
+JOIN pizza_prices pp ON d.pizza_id = pp.pizza_id
+LEFT JOIN (
+    SELECT order_id, COUNT(*) AS extra_charges
+    FROM (
+        SELECT order_id, UNNEST(string_to_array(extras, ', ')) AS extra
+        FROM customer_order
+        WHERE extras IS NOT NULL AND extras <> 'null' AND extras <> ''
+    ) extra_orders
+    GROUP BY order_id
+) eo ON d.order_id = eo.order_id;
+```
+
+| total\_revenue |
+| :--- |
+| 144 |
+
+
 3. The Pizza Runner team now wants to add an additional ratings system that allows customers to rate their runner, how would you design an additional table for this new dataset - generate a schema for this new table and insert your own data for ratings for each successful customer order between 1 to 5.
 4. Using your newly generated table - can you join all of the information together to form a table which has the following information for successful deliveries?
     - customer_id

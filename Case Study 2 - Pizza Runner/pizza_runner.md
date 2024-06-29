@@ -653,7 +653,7 @@ ORDER BY oi.order_id;
 | 10 | 104 | Meatlovers - Exclude BBQ Sauce, Mushrooms - Extra Bacon, Cheese |
 
 
-5. **Generate an alphabetically ordered comma separated ingredient list for each pizza order from the customer_orders table and add a 2x in front of any relevant ingredients**
+**5. Generate an alphabetically ordered comma separated ingredient list for each pizza order from the customer_orders table and add a 2x in front of any relevant ingredients**
     - For example: `"Meat Lovers: 2xBacon, Beef, ... , Salami"`
 
 ```sql
@@ -736,7 +736,7 @@ ORDER BY ft.row;
 | 10 | Meatlovers: 2xBacon,Beef,2xCheese,Chicken,Pepperoni,Salami |
 | 10 | Meatlovers: Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami |
 
-6. What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?
+**6. What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?**
 
 ```sql
 SELECT * FROM (
@@ -781,7 +781,7 @@ ORDER BY total_quantity DESC;
 
 ### D. Pricing and Ratings
 
-1. If a Meat Lovers pizza costs $12 and Vegetarian costs $10 and there were no charges for changes - how much money has Pizza Runner made so far if there are no delivery fees?
+**1. If a Meat Lovers pizza costs \$12 and Vegetarian costs \$10 and there were no charges for changes - how much money has Pizza Runner made so far if there are no delivery fees?**
 
 ```sql
 WITH delivered_orders AS (
@@ -807,9 +807,8 @@ FROM delivered_orders d
 | :--- |
 | 138 |
 
-
-2. What if there was an additional $1 charge for any pizza extras?
-    - Add cheese is $1 extra
+**2. What if there was an additional \$1 charge for any pizza extras?
+    - Add cheese is \$1 extra**
 
 ```sql
 WITH delivered_orders AS (
@@ -846,9 +845,46 @@ LEFT JOIN (
 | :--- |
 | 144 |
 
+**3. The Pizza Runner team now wants to add an additional ratings system that allows customers to rate their runner, how would you design an additional table for this new dataset - generate a schema for this new table and insert your own data for ratings for each successful customer order between 1 to 5.**
 
-3. The Pizza Runner team now wants to add an additional ratings system that allows customers to rate their runner, how would you design an additional table for this new dataset - generate a schema for this new table and insert your own data for ratings for each successful customer order between 1 to 5.
-4. Using your newly generated table - can you join all of the information together to form a table which has the following information for successful deliveries?
+```sql
+CREATE TABLE runner_ratings
+(
+    "order_id"    INTEGER,
+    "customer_id" INTEGER,
+    "runner_id"   INTEGER,
+    "rating"      INTEGER CHECK (rating >= 1 AND rating <= 5),
+    "rating_time" TIMESTAMP,
+    PRIMARY KEY (order_id)
+);
+
+INSERT INTO runner_ratings
+    ("order_id", "customer_id", "runner_id", "rating", "rating_time")
+VALUES (1, 101, 1, 4, '2020-01-01 19:00:00'),
+       (2, 101, 1, 5, '2020-01-01 20:00:00'),
+       (3, 102, 1, 3, '2020-01-03 01:00:00'),
+       (4, 103, 2, 5, '2020-01-04 14:30:00'),
+       (5, 104, 3, 2, '2020-01-08 21:30:00'),
+       (7, 105, 2, 4, '2020-01-08 22:00:00'),
+       (8, 102, 2, 3, '2020-01-10 00:30:00'),
+       (10, 104, 1, 5, '2020-01-11 19:00:00');
+
+```
+
+| order\_id | customer\_id | runner\_id | rating | rating\_time |
+| :--- | :--- | :--- | :--- | :--- |
+| 1 | 101 | 1 | 4 | 2020-01-01 19:00:00.000000 |
+| 2 | 101 | 1 | 5 | 2020-01-01 20:00:00.000000 |
+| 3 | 102 | 1 | 3 | 2020-01-03 01:00:00.000000 |
+| 4 | 103 | 2 | 5 | 2020-01-04 14:30:00.000000 |
+| 5 | 104 | 3 | 2 | 2020-01-08 21:30:00.000000 |
+| 7 | 105 | 2 | 4 | 2020-01-08 22:00:00.000000 |
+| 8 | 102 | 2 | 3 | 2020-01-10 00:30:00.000000 |
+| 10 | 104 | 1 | 5 | 2020-01-11 19:00:00.000000 |
+
+
+
+**4. Using your newly generated table - can you join all of the information together to form a table which has the following information for successful deliveries?**
     - customer_id
     - order_id
     - runner_id
@@ -859,9 +895,101 @@ LEFT JOIN (
     - Delivery duration
     - Average speed
     - Total number of pizzas
-5. If a Meat Lovers pizza was $12 and Vegetarian $10 fixed prices with no cost for extras and each runner is paid $0.30 per kilometre traveled - how much money does Pizza Runner have left over after these deliveries?
+
+```sql
+SELECT co.customer_id,
+       ro.order_id,
+       ro.runner_id,
+       rr.rating,
+       co.order_time,
+       ro.pickup_time,
+       EXTRACT(EPOCH FROM (ro.pickup_time - co.order_time)) / 60 AS time_between_order_and_pickup,
+       ro.duration AS delivery_duration,
+       CASE
+           WHEN ro.distance IS NOT NULL AND ro.duration IS NOT NULL
+               THEN ro.distance / ro.duration
+           ELSE NULL
+       END AS average_speed,
+       COUNT(co.pizza_id) AS total_pizzas
+FROM customer_order co
+     JOIN
+     runner_order ro ON co.order_id = ro.order_id
+     JOIN
+     runner_ratings rr ON co.order_id = rr.order_id
+WHERE ro.cancellation IS NULL
+GROUP BY co.customer_id,
+         ro.order_id,
+         ro.runner_id,
+         rr.rating,
+         co.order_time,
+         ro.pickup_time,
+         ro.duration,
+         ro.distance
+ORDER BY co.customer_id,
+         ro.order_id;
+```
+
+| customer\_id | order\_id | runner\_id | rating | order\_time | pickup\_time | time\_between\_order\_and\_pickup | delivery\_duration | average\_speed | total\_pizzas |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| 101 | 1 | 1 | 4 | 2020-01-01 18:05:02.000000 | 2020-01-01 18:15:34.000000 | 10.5333333333333333 | 32 | 0.625 | 1 |
+| 101 | 2 | 1 | 5 | 2020-01-01 19:00:52.000000 | 2020-01-01 19:10:54.000000 | 10.0333333333333333 | 27 | 0.74074074074074074074 | 1 |
+| 102 | 3 | 1 | 3 | 2020-01-02 23:51:23.000000 | 2020-01-03 00:12:37.000000 | 21.2333333333333333 | 20 | 0.67 | 2 |
+| 102 | 8 | 2 | 3 | 2020-01-09 23:54:33.000000 | 2020-01-10 00:15:02.000000 | 20.4833333333333333 | 15 | 1.56 | 1 |
+| 103 | 4 | 2 | 5 | 2020-01-04 13:23:46.000000 | 2020-01-04 13:53:03.000000 | 29.2833333333333333 | 40 | 0.585 | 3 |
+| 104 | 5 | 3 | 2 | 2020-01-08 21:00:29.000000 | 2020-01-08 21:10:57.000000 | 10.4666666666666667 | 15 | 0.66666666666666666667 | 1 |
+| 104 | 10 | 1 | 5 | 2020-01-11 18:34:49.000000 | 2020-01-11 18:50:20.000000 | 15.5166666666666667 | 10 | 1 | 2 |
+| 105 | 7 | 2 | 4 | 2020-01-08 21:20:29.000000 | 2020-01-08 21:30:45.000000 | 10.2666666666666667 | 25 | 1 | 1 |
+
+**5. If a Meat Lovers pizza was \$12 and Vegetarian \$10 fixed prices with no cost for extras and each runner is paid \$0.30 per kilometre traveled - how much money does Pizza Runner have left over after these deliveries?**
+
+```sql
+WITH pizza_count AS (
+    SELECT SUM(CASE
+                   WHEN co.pizza_id = 1 THEN 12
+                   WHEN co.pizza_id = 2 THEN 10
+               END) AS total_revenue
+    FROM customer_order co
+         JOIN runner_order ro ON co.order_id = ro.order_id
+    WHERE ro.cancellation IS NULL
+),
+     runner_payment AS (
+    SELECT (SUM(distance) * 0.30) AS runner_payment
+    FROM runner_order
+)
+SELECT po.total_revenue,
+       rp.runner_payment,
+       po.total_revenue - rp.runner_payment AS gross_profit
+FROM pizza_count po,
+     runner_payment rp;
+```
+
+| total\_revenue | runner\_payment | gross\_profit |
+| :--- | :--- | :--- |
+| 138 | 43.56 | 94.44 |
+
 
 ### E. Bonus Questions
 
-1. If Danny wants to expand his range of pizzas - how would this impact the existing data design? Write an INSERT statement to demonstrate what would happen if a new Supreme pizza with all the toppings was added to the Pizza Runner menu?
+**1. If Danny wants to expand his range of pizzas - how would this impact the existing data design? Write an INSERT statement to demonstrate what would happen if a new Supreme pizza with all the toppings was added to the Pizza Runner menu?**
+
+```sql
+INSERT INTO pizza_names ("pizza_id", "pizza_name")
+VALUES (3, 'Supreme');
+
+INSERT INTO pizza_recipes ("pizza_id", "toppings")
+VALUES (3, '1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12');
+```
+**Table: pizza_names**
+| pizza\_id | pizza\_name |
+| :--- | :--- |
+| 1 | Meatlovers |
+| 2 | Vegetarian |
+| 3 | Supreme |
+
+**Table: pizza_recipes**
+| pizza\_id | toppings |
+| :--- | :--- |
+| 1 | 1, 2, 3, 4, 5, 6, 8, 10 |
+| 2 | 4, 6, 7, 9, 11, 12 |
+| 3 | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 |
 

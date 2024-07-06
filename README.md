@@ -1,6 +1,6 @@
-# SQL Challenge Repository
+# SQL Challenge
 
-This repository is dedicated to the SQL Challenge, a series of case studies designed to test and improve my SQL skills through real-world scenarios. Each case study focuses on a different business, providing a unique dataset and a set of questions to solve using SQL.
+This repository is a series of case studies designed to test and improve my SQL skills through real-world scenarios. Each case study focuses on a different business, providing a unique dataset and a set of questions to solve using SQL. All the information about the case studies and datasets can be found at [https://8weeksqlchallenge.com/](https://8weeksqlchallenge.com/)
 
 ## Case Studies
 
